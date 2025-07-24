@@ -10,12 +10,12 @@ import { Clock, MapPin, Scissors, User, Phone, CheckCircle, AlertTriangle } from
 
 // --- INÍCIO DA CONFIGURAÇÃO DO FIREBASE ---
 const firebaseConfig = {
-  apiKey: "AIzaSyBHSMVBz3HdAS7g8LGTRKtFkzG3KORg-4k",
-  authDomain: "barbearia-seu-moacir.firebaseapp.com",
-  projectId: "barbearia-seu-moacir",
-  storageBucket: "barbearia-seu-moacir.firebasestorage.app",
-  messagingSenderId: "241468059901",
-  appId: "1:241468059901:web:2a0fe8d969a9a820b38e94"
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID
 };
 // --- FIM DA CONFIGURAÇÃO DO FIREBASE ---
 
