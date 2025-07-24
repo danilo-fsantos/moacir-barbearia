@@ -59,7 +59,7 @@ const Header = () => (
   <header className="bg-gray-900 text-white shadow-lg sticky top-0 z-50">
     <div className="container mx-auto px-6 py-2 flex justify-between items-center">
       {/* ATENÇÃO: Este é um link para o seu logo. Se quiser alterar, suba a imagem para o imgur.com e cole o novo link aqui. */}
-      <img src="https://i.imgur.com/q2y98tN.png" alt="Logótipo da Seu Moacir Barbearia" className="h-20 w-auto" />
+      <img src="https://imgur.com/tRTzxqV" alt="Logótipo da Seu Moacir Barbearia" className="h-20 w-auto" />
       <nav className="hidden md:flex space-x-6 items-center">
         <a href="#inicio" className="text-lg hover:text-amber-400 transition-colors duration-300">Início</a>
         <a href="#sobre" className="text-lg hover:text-amber-400 transition-colors duration-300">Sobre</a>
@@ -96,7 +96,7 @@ const About = () => (
       <div className="flex flex-col md:flex-row items-center gap-12">
         <div className="md:w-1/2">
            {/* ATENÇÃO: Substitua este link pela foto real da barbearia. Suba a imagem para o imgur.com e cole o novo link aqui. */}
-          <img src="https://placehold.co/600x400/1a202c/eab308?text=Barbearia+Seu+Moacir" alt="Interior da Barbearia Seu Moacir" className="rounded-lg shadow-xl w-full h-auto object-cover"/>
+          <img src="https://imgur.com/gZj2ajc" alt="Interior da Barbearia Seu Moacir" className="rounded-lg shadow-xl w-full h-auto object-cover"/>
         </div>
         <div className="md:w-1/2 text-gray-700 space-y-4">
           <p className="text-lg leading-relaxed">
