@@ -83,7 +83,7 @@ const Header = () => {
     return (
         <header className="bg-white text-black shadow-md sticky top-0 z-50">
             <div className="container mx-auto px-6 py-2 flex justify-between items-center">
-                <a href="/"><img src="https://i.imgur.com/q2y98tN.png" alt="Logótipo da Seu Moacir Barbearia" className="h-20 w-auto" /></a>
+                <a href="/"><img src="https://i.imgur.com/zm3F6M7.jpeg" alt="Logótipo da Seu Moacir Barbearia" className="h-20 w-auto" /></a>
                 <nav className="hidden md:flex space-x-6 items-center">
                     <a href="#inicio" onClick={handleSmoothScroll} className="text-lg hover:text-gray-600 transition-colors duration-300">Início</a>
                     <a href="#sobre" onClick={handleSmoothScroll} className="text-lg hover:text-gray-600 transition-colors duration-300">Sobre</a>
@@ -124,7 +124,7 @@ const Hero = () => {
             <div
                 className="absolute top-0 left-0 w-full h-full bg-black bg-center bg-cover bg-fixed"
                 style={{
-                    backgroundImage: "url(https://images.pexels.com/photos/5472251/pexels-photo-5472251.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2)",
+                    backgroundImage: "url(https://i.imgur.com/huCUkEn.jpeg)",
                     transform: `translateY(${offsetY * 0.4}px)`
                 }}
             />
@@ -150,7 +150,7 @@ const About = () => (
       <p className="text-center text-gray-500 mb-12">Uma tradição de amizade e respeito</p>
       <div className="flex flex-col md:flex-row items-center gap-12">
         <div className="md:w-1/2">
-          <img src="https://placehold.co/600x400/111827/ffffff?text=Barbearia+Seu+Moacir" alt="Interior da Barbearia Seu Moacir" className="rounded-lg shadow-xl w-full h-auto object-cover"/>
+          <img src="https://i.imgur.com/ntkylgT.jpeg" alt="Interior da Barbearia Seu Moacir" className="rounded-lg shadow-xl w-full h-auto object-cover"/>
         </div>
         <div className="md:w-1/2 text-gray-700 space-y-4">
           <p className="text-lg leading-relaxed">A <strong>Seu Moacir Barbearia</strong> carrega mais do que um nome: carrega uma história de amizade. Fundada há décadas pelo Seu Moacir, um ícone na comunidade, o espaço tornou-se um ponto de encontro e confiança.</p>
