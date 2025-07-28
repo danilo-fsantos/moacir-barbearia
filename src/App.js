@@ -6,7 +6,7 @@ import { getFirestore, collection, onSnapshot, addDoc, query, where, orderBy } f
 import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 
 // --- IMPORTAÇÕES DE ÍCONES ---
-import { Clock, MapPin, Scissors, User, Phone, CheckCircle, LogIn, LogOut, Calendar } from 'lucide-react';
+import { Clock, MapPin, Scissors, User, Phone, CheckCircle, LogIn, LogOut, Calendar, Menu, X, Tag } from 'lucide-react';
 
 // --- CONFIGURAÇÃO DO FIREBASE (JÁ PREENCHIDA COM OS SEUS DADOS) ---
 const firebaseConfig = {
@@ -51,6 +51,19 @@ const barbers = [
     }
 ];
 
+const services = [
+    { id: 'corte', name: 'Corte de Cabelo', price: '40,00', duration: 60 },
+    { id: 'barba', name: 'Barba', price: '40,00', duration: 60 },
+    { id: 'corte_barba', name: 'Corte e Barba', price: '75,00', duration: 60 },
+    { id: 'corte_sobrancelha', name: 'Corte + Sobrancelha', price: '50,00', duration: 60 },
+    { id: 'corte_simples', name: 'Corte Simples (máquina)', price: '25,00', duration: 30 },
+    { id: 'pezinho', name: 'Pezinho', price: '15,00', duration: 30 },
+    { id: 'depilacao', name: 'Depilação (nariz/orelha)', price: '10,00', duration: 30 },
+    { id: 'hidratacao', name: 'Hidratação', price: '15,00', duration: 30 },
+    { id: 'relaxamento', name: 'Relaxamento', price: '40,00', duration: 30 },
+];
+
+
 // --- COMPONENTES DA APLICAÇÃO ---
 
 const LoadingScreen = () => (
@@ -66,6 +79,8 @@ const LoadingScreen = () => (
 // =================================================================================
 
 const Header = () => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
     const handleSmoothScroll = (e) => {
         e.preventDefault();
         const targetId = e.currentTarget.getAttribute('href').substring(1);
@@ -77,22 +92,51 @@ const Header = () => {
                 behavior: 'smooth'
             });
         }
+        // Fecha o menu mobile após o clique
+        setIsMenuOpen(false);
     };
 
     return (
         <header className="bg-white text-black shadow-md sticky top-0 z-50">
             <div className="container mx-auto px-6 py-2 flex justify-between items-center">
                 <a href="/"><img src="https://i.imgur.com/eH4XWxv.jpeg" alt="Logótipo da Seu Moacir Barbearia" className="h-20 w-auto" /></a>
+
+                {/* Menu para Desktop */}
                 <nav className="hidden md:flex space-x-6 items-center">
                     <a href="#inicio" onClick={handleSmoothScroll} className="text-lg hover:text-gray-600 transition-colors duration-300">Início</a>
                     <a href="#sobre" onClick={handleSmoothScroll} className="text-lg hover:text-gray-600 transition-colors duration-300">Sobre</a>
                     <a href="#agendamento" onClick={handleSmoothScroll} className="text-lg hover:text-gray-600 transition-colors duration-300">Agendamento</a>
                     <a href="#contato" onClick={handleSmoothScroll} className="text-lg hover:text-gray-600 transition-colors duration-300">Contato</a>
                 </nav>
+
+                {/* Botão do Menu Mobile */}
+                <div className="md:hidden">
+                    <button onClick={() => setIsMenuOpen(!isMenuOpen)} aria-label="Abrir menu">
+                        <Menu className="h-8 w-8 text-black" />
+                    </button>
+                </div>
             </div>
+
+            {/* Overlay do Menu Mobile */}
+            {isMenuOpen && (
+                <div className="md:hidden fixed inset-0 bg-white z-50 flex flex-col">
+                    <div className="flex justify-end p-6">
+                         <button onClick={() => setIsMenuOpen(false)} aria-label="Fechar menu">
+                            <X className="h-8 w-8 text-black" />
+                        </button>
+                    </div>
+                    <nav className="flex flex-col items-center justify-center flex-1 space-y-8">
+                        <a href="#inicio" onClick={handleSmoothScroll} className="text-3xl font-bold hover:text-gray-600 transition-colors duration-300">Início</a>
+                        <a href="#sobre" onClick={handleSmoothScroll} className="text-3xl font-bold hover:text-gray-600 transition-colors duration-300">Sobre</a>
+                        <a href="#agendamento" onClick={handleSmoothScroll} className="text-3xl font-bold hover:text-gray-600 transition-colors duration-300">Agendamento</a>
+                        <a href="#contato" onClick={handleSmoothScroll} className="text-3xl font-bold hover:text-gray-600 transition-colors duration-300">Contato</a>
+                    </nav>
+                </div>
+            )}
         </header>
     );
 };
+
 
 const Hero = () => {
     const [offsetY, setOffsetY] = useState(0);
@@ -160,6 +204,7 @@ const About = () => (
 );
 
 const SchedulingSystem = () => {
+    const [selectedService, setSelectedService] = useState(null);
     const [selectedBarber, setSelectedBarber] = useState(null);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [selectedTime, setSelectedTime] = useState(null);
@@ -169,9 +214,87 @@ const SchedulingSystem = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [error, setError] = useState('');
+    const [availableSlots, setAvailableSlots] = useState([]);
 
-    const workingHours = ["09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+    const resetSelection = () => {
+        setSelectedBarber(null);
+        setSelectedTime(null);
+        setAppointments([]);
+        setAvailableSlots([]);
+    }
 
+    // Gerador de Horários
+    useEffect(() => {
+        if (!selectedDate || !selectedService || !selectedBarber) {
+            setAvailableSlots([]);
+            return;
+        }
+
+        const dayOfWeek = selectedDate.getDay();
+        if (dayOfWeek === 0) { // Domingo
+            setAvailableSlots([]);
+            return;
+        }
+
+        const startTime = 9 * 60; // 9:00 em minutos
+        const endTime = 19 * 60; // 19:00 em minutos
+        const lunchStart = 12 * 60; // 12:00 em minutos
+        const lunchEnd = 14 * 60; // 14:00 em minutos
+        const serviceDuration = selectedService.duration;
+        const interval = 30; // base de 30 minutos
+
+        const slots = [];
+        for (let time = startTime; time < endTime; time += interval) {
+            const slotEnd = time + serviceDuration;
+            // Verifica se o slot não cai na hora do almoço
+            const inLunch = (time >= lunchStart && time < lunchEnd) || (slotEnd > lunchStart && slotEnd <= lunchEnd);
+            // Verifica se o slot termina depois do expediente
+            const afterHours = slotEnd > endTime;
+
+            if (!inLunch && !afterHours) {
+                const hours = Math.floor(time / 60).toString().padStart(2, '0');
+                const minutes = (time % 60).toString().padStart(2, '0');
+                slots.push(`${hours}:${minutes}`);
+            }
+        }
+        
+        const bookedSlots = new Set();
+        appointments.forEach(app => {
+            const [appHour, appMinute] = app.hora.split(':').map(Number);
+            const appStartTime = appHour * 60 + appMinute;
+            const appDuration = services.find(s => s.id === app.servico.id)?.duration || 30;
+            
+            // Adiciona todos os intervalos de 30min que o agendamento ocupa
+            for(let i = 0; i < appDuration; i += interval) {
+                const bookedTime = appStartTime + i;
+                const hours = Math.floor(bookedTime / 60).toString().padStart(2, '0');
+                const minutes = (bookedTime % 60).toString().padStart(2, '0');
+                bookedSlots.add(`${hours}:${minutes}`);
+            }
+        });
+        
+        const filteredSlots = slots.filter(slot => {
+            const [slotHour, slotMinute] = slot.split(':').map(Number);
+            const slotStartTime = slotHour * 60 + slotMinute;
+
+            // Verifica se algum intervalo de 30min dentro do serviço já está ocupado
+            for (let i = 0; i < serviceDuration; i += interval) {
+                const timeToCheck = slotStartTime + i;
+                const hours = Math.floor(timeToCheck / 60).toString().padStart(2, '0');
+                const minutes = (timeToCheck % 60).toString().padStart(2, '0');
+                if (bookedSlots.has(`${hours}:${minutes}`)) {
+                    return false; // Slot indisponível
+                }
+            }
+            return true; // Slot disponível
+        });
+
+        setAvailableSlots(filteredSlots);
+
+    }, [appointments, selectedDate, selectedService, selectedBarber]);
+
+
+    // Leitor de Agendamentos do Firebase
     useEffect(() => {
         if (!db || !selectedDate || !selectedBarber) {
             setAppointments([]);
@@ -181,11 +304,11 @@ const SchedulingSystem = () => {
         const q = query(collection(db, "agendamentos"), where("data", "==", formattedDate), where("barbeiro", "==", selectedBarber.id));
         
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const bookedTimes = querySnapshot.docs.map(doc => doc.data().hora);
-            setAppointments(bookedTimes);
+            const bookedAppointments = querySnapshot.docs.map(doc => doc.data());
+            setAppointments(bookedAppointments);
         }, (err) => {
             console.error("Erro ao buscar agendamentos: ", err);
-            setError("Não foi possível carregar os horários. Pode ser necessário criar um índice no Firebase. Verifique a consola.");
+            setError("Não foi possível carregar os horários.");
         });
 
         return () => unsubscribe();
@@ -194,18 +317,29 @@ const SchedulingSystem = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        if (!selectedBarber || !selectedTime || !nome || !telefone) {
-            setError("Por favor, selecione um barbeiro, uma data, um horário e preencha os seus dados.");
+        if (!selectedService || !selectedBarber || !selectedTime || !nome || !telefone) {
+            setError("Por favor, preencha todos os campos para continuar.");
             return;
         }
         setIsSubmitting(true);
         try {
             await addDoc(collection(db, "agendamentos"), {
-                nome: nome, telefone: telefone, data: selectedDate.toISOString().split('T')[0], hora: selectedTime, barbeiro: selectedBarber.id, timestamp: new Date()
+                nome: nome,
+                telefone: telefone,
+                data: selectedDate.toISOString().split('T')[0],
+                hora: selectedTime,
+                barbeiro: selectedBarber.id,
+                servico: {
+                    id: selectedService.id,
+                    name: selectedService.name,
+                    price: selectedService.price,
+                    duration: selectedService.duration
+                },
+                timestamp: new Date()
             });
             setIsSuccess(true);
             setTimeout(() => {
-                setIsSuccess(false); setNome(''); setTelefone(''); setSelectedTime(null); setSelectedBarber(null);
+                setIsSuccess(false); setNome(''); setTelefone(''); setSelectedTime(null); setSelectedBarber(null); setSelectedService(null);
             }, 5000);
         } catch (err) {
             console.error("Erro ao agendar: ", err);
@@ -216,37 +350,67 @@ const SchedulingSystem = () => {
     };
 
     if (isSuccess) return (
-        <div className="text-center p-8 bg-green-50 border border-green-200 rounded-lg max-w-md mx-auto">
+        <div className="text-center p-8 bg-green-50 border border-green-200 rounded-lg max-w-lg mx-auto">
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h4 className="text-2xl font-bold text-green-800">Agendamento Confirmado!</h4>
-            <p className="text-green-700 mt-2">O seu horário com <strong>{selectedBarber.name}</strong> foi reservado com sucesso. Obrigado!</p>
+            <p className="text-green-700 mt-2">O seu horário para <strong>{selectedService.name}</strong> com <strong>{selectedBarber.name}</strong> foi reservado com sucesso. Obrigado!</p>
         </div>
     );
 
     return (
-        <div className="bg-white p-8 rounded-xl shadow-2xl max-w-4xl mx-auto">
+        <div className="bg-white p-6 md:p-8 rounded-xl shadow-2xl max-w-5xl mx-auto">
             <h3 className="text-3xl font-bold text-center text-gray-800 mb-2">Faça o seu Agendamento</h3>
             <p className="text-center text-gray-500 mb-8">Rápido, fácil e online.</p>
             {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative mb-6" role="alert">{error}</div>}
-            <form onSubmit={handleSubmit}>
-                <div className="mb-8">
-                    <p className="block text-lg font-bold text-gray-700 mb-4 text-center">1. Escolha o seu barbeiro:</p>
+            
+            <form onSubmit={handleSubmit} className="space-y-10">
+                {/* ETAPA 1: SERVIÇOS */}
+                <div>
+                    <h4 className="text-lg font-bold text-gray-700 mb-4 text-center">1. Escolha o Serviço</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {services.map(s => (
+                            <div key={s.id} onClick={() => { setSelectedService(s); resetSelection(); }} className={`cursor-pointer p-4 border-2 rounded-lg transition-all duration-300 ${selectedService?.id === s.id ? 'border-gray-800 bg-gray-50 scale-105 shadow-lg' : 'border-gray-200 hover:border-gray-400'}`}>
+                                <p className="font-semibold text-gray-800">{s.name}</p>
+                                <div className="text-sm text-gray-500 flex justify-between items-center mt-2">
+                                    <span><Clock size={14} className="inline mr-1"/>{s.duration} min</span>
+                                    <span className="font-bold">R$ {s.price}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* ETAPA 2: BARBEIROS */}
+                <div className={`transition-opacity duration-500 ${!selectedService ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                    <h4 className="text-lg font-bold text-gray-700 mb-4 text-center">2. Escolha o seu Barbeiro</h4>
                     <div className="flex justify-center gap-6">
                         {barbers.map(b => (
-                            <div key={b.id} onClick={() => { setSelectedBarber(b); setSelectedTime(null); }} className={`cursor-pointer text-center p-4 border-2 rounded-lg transition-all duration-300 ${selectedBarber?.id === b.id ? 'border-gray-800 bg-gray-50 scale-105' : 'border-gray-200 hover:border-gray-400'}`}>
+                            <div key={b.id} onClick={() => { setSelectedBarber(b); setSelectedTime(null); }} className={`cursor-pointer text-center p-4 border-2 rounded-lg transition-all duration-300 ${selectedBarber?.id === b.id ? 'border-gray-800 bg-gray-50 scale-105 shadow-lg' : 'border-gray-200 hover:border-gray-400'}`}>
                                 <img src={b.imageUrl} alt={b.name} className="w-24 h-24 rounded-full mx-auto object-cover mb-2" />
                                 <span className="font-semibold text-gray-800">{b.name}</span>
                             </div>
                         ))}
                     </div>
                 </div>
+
+                {/* ETAPA 3 e 4: DATA, HORA E DADOS */}
                 <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 transition-opacity duration-500 ${!selectedBarber ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
                     <div>
-                        <div className="mb-6"><label htmlFor="date" className="block text-sm font-bold text-gray-700 mb-2">2. Escolha a data:</label><input type="date" id="date" min={new Date().toISOString().split('T')[0]} value={selectedDate.toISOString().split('T')[0]} onChange={(e) => {setSelectedDate(new Date(e.target.value + 'T00:00:00')); setSelectedTime(null);}} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800"/></div>
-                        <div><p className="block text-sm font-bold text-gray-700 mb-2">3. Escolha o horário:</p><div className="grid grid-cols-3 gap-2">{workingHours.map(time => { const isBooked = appointments.includes(time); return (<button type="button" key={time} disabled={isBooked} onClick={() => setSelectedTime(time)} className={`p-3 rounded-lg text-center font-semibold transition-colors duration-200 ${isBooked ? 'bg-gray-200 text-gray-400 cursor-not-allowed line-through' : selectedTime === time ? 'bg-gray-800 text-white ring-2 ring-gray-900' : 'bg-gray-100 text-gray-800 hover:bg-gray-300'}`}>{time}</button>); })}</div></div>
+                        <div className="mb-6">
+                            <label htmlFor="date" className="block text-sm font-bold text-gray-700 mb-2">3. Escolha a data:</label>
+                            <input type="date" id="date" min={new Date().toISOString().split('T')[0]} value={selectedDate.toISOString().split('T')[0]} onChange={(e) => {setSelectedDate(new Date(e.target.value + 'T00:00:00')); setSelectedTime(null);}} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800"/>
+                        </div>
+                        <div>
+                            <p className="block text-sm font-bold text-gray-700 mb-2">4. Escolha o horário:</p>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                {availableSlots.length > 0 ? availableSlots.map(time => (
+                                    <button type="button" key={time} onClick={() => setSelectedTime(time)} className={`p-3 rounded-lg text-center font-semibold transition-colors duration-200 ${selectedTime === time ? 'bg-gray-800 text-white ring-2 ring-gray-900' : 'bg-gray-100 text-gray-800 hover:bg-gray-300'}`}>{time}</button>
+                                )) : <p className="col-span-full text-center text-gray-500 p-4 bg-gray-50 rounded-lg">Nenhum horário disponível para esta data ou serviço.</p>}
+                            </div>
+                        </div>
                     </div>
                     <div className="bg-gray-50 p-6 rounded-lg border">
-                        <p className="block text-sm font-bold text-gray-700 mb-4">4. Os seus dados:</p>
+                        <p className="block text-sm font-bold text-gray-700 mb-4">5. Os seus dados:</p>
                         <div className="space-y-4">
                             <div className="relative"><User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="text" placeholder="O seu nome completo" value={nome} onChange={(e) => setNome(e.target.value)} required className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800"/></div>
                             <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" /><input type="tel" placeholder="O seu telefone (WhatsApp)" value={telefone} onChange={(e) => setTelefone(e.target.value)} required className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800"/></div>
@@ -360,8 +524,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                     ) : appointments.length > 0 ? (
                         <ul className="divide-y divide-gray-200">
                             {appointments.map(app => (
-                                <li key={app.id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                                    <div className="flex items-center gap-4">
+                                <li key={app.id} className="p-4 flex items-center justify-between hover:bg-gray-50 flex-wrap">
+                                    <div className="flex items-center gap-4 mb-2 sm:mb-0">
                                         <div className="bg-black text-white font-bold p-3 rounded-lg text-center w-20">
                                             <span className="block text-2xl">{app.hora}</span>
                                         </div>
@@ -370,6 +534,9 @@ const AdminDashboard = ({ user, onLogout }) => {
                                             <p className="text-gray-600 flex items-center gap-2"><Phone size={16} /> {app.telefone}</p>
                                         </div>
                                     </div>
+                                     <div className="w-full sm:w-auto text-right">
+                                        <p className="font-semibold text-gray-700 bg-gray-200 px-3 py-1 rounded-full text-sm inline-flex items-center gap-2"><Tag size={14}/>{app.servico?.name || 'Serviço não especificado'}</p>
+                                     </div>
                                 </li>
                             ))}
                         </ul>
