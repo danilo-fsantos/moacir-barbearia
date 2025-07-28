@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 // --- IMPORTAÇÕES DO FIREBASE (ORGANIZADAS) ---
 import { initializeApp, getApp, getApps } from 'firebase/app';
@@ -6,7 +6,7 @@ import { getFirestore, collection, onSnapshot, addDoc, query, where, orderBy } f
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
 
 // --- IMPORTAÇÕES DE ÍCONES ---
-import { Clock, MapPin, Scissors, User, Phone, CheckCircle, LogOut, Calendar, Menu, X, Tag, Mail, Lock } from 'lucide-react';
+import { Clock, MapPin, Scissors, User, Phone, CheckCircle, LogOut, Calendar, Menu, X, Tag, Mail, Lock, Bell } from 'lucide-react';
 
 // --- CONFIGURAÇÃO DO FIREBASE (JÁ PREENCHIDA COM OS SEUS DADOS) ---
 const firebaseConfig = {
@@ -445,6 +445,40 @@ const MainWebsite = () => (
 // --- COMPONENTES DA ÁREA DO BARBEIRO (ADMIN) ---
 // =================================================================================
 
+const NotificationToast = ({ notification, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            onClose();
+        }, 5000); // A notificação desaparece após 5 segundos
+
+        return () => clearTimeout(timer);
+    }, [notification, onClose]);
+
+    if (!notification) return null;
+
+    return (
+        <div className="fixed bottom-5 right-5 bg-white shadow-lg rounded-lg p-4 w-full max-w-sm border-l-4 border-green-500 z-50 animate-pulse">
+            <div className="flex items-start">
+                <div className="flex-shrink-0 pt-0.5">
+                    <Bell className="h-6 w-6 text-green-500"/>
+                </div>
+                <div className="ml-3 w-0 flex-1">
+                    <p className="text-sm font-medium text-gray-900">Novo Agendamento!</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                        <strong>{notification.nome}</strong> agendou <strong>{notification.servico.name}</strong> às {notification.hora}.
+                    </p>
+                </div>
+                <div className="ml-4 flex-shrink-0 flex">
+                    <button onClick={onClose} className="bg-white rounded-md inline-flex text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400">
+                        <span className="sr-only">Fechar</span>
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const AdminLogin = ({ onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -516,13 +550,21 @@ const AdminDashboard = ({ user, onLogout }) => {
     const [appointments, setAppointments] = useState([]);
     const [selectedDate, setSelectedDate] = useState(new Date());
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [notification, setNotification] = useState(null);
+    const isInitialLoad = useRef(true);
 
     const barberId = authorizedBarbers[user.email];
 
     useEffect(() => {
-        if (!db || !barberId) return;
+        if (!db || !barberId) {
+            setError("Utilizador não autorizado ou sem barbeiro associado.");
+            setIsLoading(false);
+            return;
+        }
 
         setIsLoading(true);
+        setError('');
         const formattedDate = selectedDate.toISOString().split('T')[0];
         const q = query(
             collection(db, "agendamentos"),
@@ -533,15 +575,40 @@ const AdminDashboard = ({ user, onLogout }) => {
         
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedAppointments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Lógica de notificação
+            if (isInitialLoad.current) {
+                isInitialLoad.current = false;
+            } else if (fetchedAppointments.length > appointments.length) {
+                const oldIds = new Set(appointments.map(a => a.id));
+                const newAppointment = fetchedAppointments.find(a => !oldIds.has(a.id));
+                if (newAppointment) {
+                    setNotification(newAppointment);
+                }
+            }
+            
             setAppointments(fetchedAppointments);
+            setIsLoading(false);
+        }, (err) => {
+            console.error("Erro ao carregar agenda do admin:", err);
+            // Verifica se o erro é de índice faltando e mostra a URL
+            if (err.message.includes("indexes?create_composite")) {
+                 setError(<>Falha ao carregar agenda. É necessário criar um índice no Firebase. <a href={err.message.split(' ').find(s => s.startsWith('https://'))} target="_blank" rel="noopener noreferrer" className="underline font-bold">Clique aqui para criar.</a> Após criar, atualize a página.</>);
+            } else {
+                setError("Ocorreu um erro ao carregar a agenda.");
+            }
             setIsLoading(false);
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            isInitialLoad.current = true; // Reseta para a próxima mudança de data
+        };
     }, [selectedDate, barberId]);
 
     return (
         <div className="bg-gray-100 min-h-screen">
+            <NotificationToast notification={notification} onClose={() => setNotification(null)} />
             <header className="bg-black text-white shadow-md">
                 <div className="container mx-auto px-6 py-4 flex justify-between items-center">
                     <div>
@@ -565,6 +632,8 @@ const AdminDashboard = ({ user, onLogout }) => {
                         className="w-full p-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-black"
                     />
                 </div>
+                
+                 {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert"><p className="font-bold">Erro</p><p>{error}</p></div>}
                 
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                     <div className="p-4 border-b">
